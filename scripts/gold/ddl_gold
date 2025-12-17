@@ -1,0 +1,185 @@
+in progress
+--create a combined transactions table 
+--create a table of transactions for 2009-2011 with minimum information
+IF OBJECT_ID('gold.online_retail_combined', 'U') IS NOT NULL
+    DROP TABLE gold.online_retail_combined;
+GO
+
+SELECT 
+    Invoice, 
+    InvoiceDate, 
+    [Time], 
+    Price AS Price, 
+    Quantity,           
+    CustomerID, 
+    Country
+INTO gold.online_retail_combined
+FROM (
+    SELECT Invoice, InvoiceDate, [Time], Price, Quantity, CustomerID, Country
+    FROM silver.online_retail_1
+    
+    UNION ALL
+    
+
+    SELECT Invoice, InvoiceDate, [Time], Price, Quantity, CustomerID, Country
+    FROM silver.online_retail_2
+) AS CombinedData;
+
+
+UPDATE gold.online_retail_combined
+SET Price = REPLACE(TRIM(Price), ',', '.');
+GO
+
+ALTER TABLE gold.online_retail_combined
+ALTER COLUMN Price DECIMAL(18, 2);
+GO
+
+
+DROP TABLE gold.invoices
+
+CREATE TABLE gold.invoices AS
+SELECT 
+    Invoice, 
+    InvoiceDate, 
+    [Time], 
+    CustomerID, 
+    Country,
+    SUM(Quantity * Price) AS TotalPrice
+FROM gold.online_retail_combined
+GROUP BY 
+    Invoice, 
+    InvoiceDate, 
+    [Time],
+    CustomerID, 
+    Country;
+
+     
+     
+    SELECT 
+        'gold.invoices' AS TableName,
+        COUNT(*) AS TotalRows,
+        COUNT(CASE WHEN [Invoice] IS NULL THEN 1 END) AS NULL_Count_Invoice,
+        COUNT(CASE WHEN [InvoiceDate] IS NULL THEN 1 END) AS NULL_Count_StockCode,
+        COUNT(CASE WHEN [Time] IS NULL THEN 1 END) AS NULL_Count_Time,
+        COUNT(CASE WHEN [TotalPrice] IS NULL THEN 1 END) AS NULL_Count_Price,
+        COUNT(CASE WHEN [CustomerID] IS NULL THEN 1 END) AS NULL_Count_CustomerID,
+        COUNT(CASE WHEN [Country] IS NULL THEN 1 END) AS NULL_Count_Country
+    FROM 
+        gold.invoices;
+
+   SELECT 
+       Invoice, 
+       COUNT(*) AS NumberOfRows
+       FROM gold.invoices
+       GROUP BY Invoice
+       HAVING COUNT(*) > 1
+       ORDER BY NumberOfRows DESC;
+
+SELECT *
+    FROM gold.invoices
+    WHERE Invoice IN ('492807', '494166', '544926', '499967', '500353', '500827')
+    ORDER BY Invoice;
+
+
+SELECT 
+    Invoice, 
+    MAX(InvoiceDate) AS InvoiceDate, 
+    MIN([Time]) AS [Time],           
+    MAX(CustomerID) AS CustomerID,   
+    MAX(Country) AS Country,   
+    SUM(TotalPrice) AS TotalPrice    
+INTO gold.invoices_summarized
+FROM gold.invoices
+GROUP BY 
+    Invoice;
+GO
+
+
+DROP TABLE gold.invoices
+
+    SELECT 
+        Invoice, 
+        COUNT(*) AS NumberOfRows
+        FROM gold.invoices_summarized
+        GROUP BY Invoice
+        HAVING COUNT(*) > 1
+        ORDER BY NumberOfRows DESC;
+
+CREATE VIEW dim_product AS
+SELECT 
+    StockCode,
+    Description,
+    Price as UnitPrice
+    
+FROM silver.online_retail_1
+
+UNION 
+
+SELECT 
+    StockCode,
+    Description,
+    Price as UnitPrice
+    
+FROM silver.online_retail_2
+
+
+SELECT 
+       StockCode, 
+       COUNT(*) AS NumberOfRows
+       FROM dim_product
+       GROUP BY Stockcode
+       HAVING COUNT(*) > 1
+       ORDER BY NumberOfRows DESC;
+
+ALTER TABLE dim_product ADD Type VARCHAR(50);
+
+Create OR ALTER VIEW dim_product AS 
+SELECT 
+    StockCode,
+    Description,
+    UnitPrice,
+        CASE 
+            WHEN StockCode IN ('BANK CHARGES', 'ADJUST', 'PADS') 
+                OR Description LIKE '%error%' 
+                OR Description LIKE '%wrong%'
+                OR Description LIKE '%amazon%' 
+                OR Description LIKE '%lost%' 
+                OR Description LIKE '%missing%' THEN 'Adjustment'
+
+            WHEN StockCode IN ( 'B',) 
+                OR Description LIKE '%amazon%' THEN 'Fee'
+
+            WHEN StockCode IN ('DOT', 'POST', 'D') 
+                OR Description LIKE '%POSTAGE%' 
+                OR Description LIKE '%CARRIAGE%' THEN 'Service'
+     
+            WHEN StockCode LIKE '%bad quality%' 
+                 OR Description LIKE '%damaged%' 
+                 OR Description LIKE '%dirty%'
+                 OR Description LIKE '%crushed%'
+                 OR Description LIKE '%rusty%'
+                 OR Description LIKE '%wet%'
+                 OR Description LIKE '%broken%' 
+                 OR Description LIKE '%check%' 
+                 OR Description LIKE '%thrown away%' THEN 'Damaged Stock'
+        
+            ELSE 'Product'
+        END AS Type
+            FROM (
+            SELECT 
+                StockCode, 
+                MAX(Description) AS Description, 
+                MAX(CAST(Price AS DECIMAL(18,2))) AS UnitPrice
+            FROM (
+                SELECT StockCode, Description, Price FROM silver.online_retail_1
+                UNION ALL
+                SELECT StockCode, Description, Price FROM silver.online_retail_2
+            ) AS CombinedProducts
+            WHERE StockCode <> 'D' 
+            GROUP BY StockCode
+        ) AS CleanedData;
+    
+    
+   
+  
+    
