@@ -2,4 +2,5 @@
 Building a modern data warehouse: ETL processes, data modeling and analytics
 
 
-<img width="639" height="808" alt="test drawio" src="https://github.com/user-attachments/assets/2d122625-edaa-404b-832a-9a879e63fb05" />
+<img width="638" height="808" alt="Diagramă" src="https://github.com/user-attachments/assets/f2287e16-8cef-4d19-a48f-22091e15dc7b" />
+
