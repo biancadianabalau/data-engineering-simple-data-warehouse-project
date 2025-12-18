@@ -40,13 +40,16 @@ Documentation: Provide clear documentation of the data model to support both bus
 
 📂 Repository Structure
 
-data-engineering-simple-data-warehouse-project/
-.
+data-engineering-simple-data-warehouse-project
+
 ├── datasets/
+
 ├── docs/
 │   └── diagram_data_warehouse.drawio
+
 ├── scripts/
 │   ├── bronze/
 │   ├── silver/
 │   └── gold/
+
 └── README.md
